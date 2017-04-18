@@ -1,0 +1,25 @@
+#plugin_content 
+{
+	padding: 10px;
+}
+
+.message
+{
+	width: 300px;
+	border : solid;
+	border-width: 1px;
+	padding: 10px;	
+	margin: 1px;
+	font-family: Tahoma, Geneva, sans-serif;
+	color: grey;
+}
+
+.ok
+{
+	border-color: green;
+}
+
+.ko
+{
+	border-color: red;
+}
