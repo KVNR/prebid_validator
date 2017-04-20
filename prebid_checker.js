@@ -591,7 +591,6 @@ chrome.tabs.onUpdated.addListener(function(tabId , info) {
 		var message = '';
 
 		document.getElementById("processing").remove();
-		console.log(data);
 		ok_counter += !checkPrebidLoading(data);
 		ok_counter += !checkAdSlotCount();
 		ok_counter += !checkUtCalls(data);
