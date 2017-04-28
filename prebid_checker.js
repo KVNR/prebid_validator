@@ -31,16 +31,7 @@ chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
 	countDFPAdSlotsOnPage(current_tab.id);
 
 	// Prebid.js load check
-	chrome.webRequest.onResponseStarted.addListener(
-		function(details) {
-	    	if (details.statusCode == 200 && current_tab.id == details.tabId)
-	    	{
-	    		addCallInfoDiv(details, 'library_load');
-	    	}
-	   	},
-	    {urls: ["*://*.adnxs.com/prebid/*"]},
-	    ["responseHeaders"]
-	);
+	checkPbjsOnPage(current_tab.id);
 
 	// JPT calls check
 	chrome.webRequest.onResponseStarted.addListener(
@@ -140,6 +131,7 @@ function writeCountDFPAdSlotsOnPage(tab_dom_content)
 {
 	google_tags_count = 0;
 
+	// console.log(tab_dom_content);
 	var google_tags_count = (tab_dom_content.match(/googletag\.display/g) || []).length;
 	document.getElementById('data').setAttribute('dfp_tags',google_tags_count);
 }
@@ -157,7 +149,8 @@ function collectData()
 	var parent = document.getElementById('data');
 	var children = parent.getElementsByTagName('*');
 
-	for (i = 0; i < children.length; ++i) {
+	for (i = 0; i < children.length; ++i)
+	{
 		var content = JSON.parse(children[i].innerHTML);
 		data.push(content);
 	}
@@ -165,61 +158,81 @@ function collectData()
 	return data;
 }
 
-// Helper for query string parameters
-function checkPrebidLoading()
+// Helper callback to retreive pbjs from active tab
+function writePbjsDataOnPage(response)
 {
-	qs = /[?](.+)/.exec(qs)[1];
-    qs = qs.split('+').join(' ');
-
-    var params = {},
-        tokens,
-        re = /[?&]?([^=]+)=([^&]*)/g;
-
-    while (tokens = re.exec(qs)) {
-        params[decodeURIComponent(tokens[1])] = decodeURIComponent(tokens[2]);
-    }
-
-    return params;
-}
-
-
-
-// Check if prebid loaded properly
-function checkPrebidLoading(data)
-{
-	var min_time = data[0].datetime;
-	var prebid_lib_call = null;
-	var message = '';
-	var error_counter = 0;
-
-	for (i = 0; i < data.length; ++i) {
-		min_time = data[i].datetime < min_time ? data[i].datetime : min_time;
-		prebid_lib_call = data[i].call_type == 'library_load' ? data[i] : prebid_lib_call;
-	}
-
-	if (!prebid_lib_call)
+	var pbjs = response.replace(/&quot;/g,'"');
+	if (!pbjs.includes('pbjs_object="'))
 	{
-		error_counter++;
-		message += 'Error: Prebid.js is not called.<br/>';
-	}
-	else if (prebid_lib_call.status_code != 200)
-	{
-		error_counter++;
-		message += 'Error: Prebid.js is not loaded properly.<br/>';
-	}
-	else if (prebid_lib_call.datetime < min_time)
-	{
-		error_counter++;
-		message += 'Error: Prebid should be loaded prior to any other ad serving calls.<br/>';
+		pbjs='{}'
 	}
 	else
 	{
-		message += 'Prebid.js library loading: OK!<br/>';
+		pbjs = pbjs.split('pbjs_object="')[1];
+		pbjs = pbjs.split('"></div>')[0];
 	}
+	document.getElementById('data').setAttribute('pbjs_object',pbjs);
+}
 
-	var type = error_counter ? 'ko' : 'ok';
-	showMessage(message, type);
-	return error_counter;
+// Helper for number of adslots on page
+function checkPbjsOnPage(tab_id)
+{
+	chrome.tabs.sendMessage(tab_id, {text:'Give me the DOM!'}, writePbjsDataOnPage);
+}
+
+// Check if prebid loaded properly
+// function checkPrebidLoading(data)
+function checkPrebidLoaded()
+{
+
+	var pbjs = document.getElementById('data').getAttribute('pbjs_object');
+	pbjs = JSON.parse(pbjs);
+
+	console.log(pbjs);
+
+	var message = '';
+	type = '';
+
+	if (!pbjs.libLoaded)
+	{
+		message += 'Error : Prebid library not loaded.<br/>';
+		type = 'ko';
+	}
+	else
+	{
+		type = 'ok'
+		message += 'Prebid library loaded: OK!<br/>';
+		message += ' - Prebid ' + pbjs.version + '<br/>';
+		message += ' - '+ pbjs.adUnits.length + ' adUnits<br/>';
+		if (pbjs.bidderTimeout) { message += ' - Timeout of '+ pbjs.bidderTimeout +' ms<br/>';};
+
+		var ad_unit = null;
+		for (i=0; i < pbjs.adUnits.length; i++)
+		{
+			adunit = pbjs.adUnits[i];
+
+			message += '<br/>';
+			message += 'adUnit ' + (i+1) + ':<br/>';
+			message += ' - Code: '+ adunit.code + '<br/>';
+
+			var sizes = '';
+			for (j=0; j < adunit.sizes.length; j++)
+			{
+				sizes += ' ' + adunit.sizes[j][0] +'x'+ adunit.sizes[j][1];
+			}		
+			message += ' - Sizes:'+ sizes + '<br/>';
+
+			var bidders = '';
+			for (j=0; j < adunit.bids.length; j++)
+			{
+				bidders += ' ' + adunit.bids[j].bidder;
+			}
+			message += ' - Bidders:'+ bidders + '<br/>';
+			message += ' - Transaction Id: '+ adunit.transactionId + '<br/>';
+		}
+	}
+	showMessage(message,type);
+	return type == 'ok' ? 0 : 1;
 }
 
 // Check jpt calls
@@ -234,12 +247,12 @@ function checkJptCalls(data)
 	var tab_id = data[0].tab_id;
 	var message = '';
 
-	if (data[1].call_type == 'ut')
+	if (!data.length && data[0].call_type == 'ut')
 	{
 		return 0;
 	}
 
-	if (data[1].call_type != 'jpt')
+	if (!data.length && data[0].call_type != 'jpt')
 	{
 		error_counter++;
 		message += 'Error : JPT call is missing.<br/>';	
@@ -340,9 +353,9 @@ function checkGptCalls(data)
 
 	for (i = 0; i < data.length; ++i)
 	{
-		console.log(data[i].call_type);
 		if (data[i].call_type == 'gpt')
 		{
+			console.log(data[i].call_type);
 			gpt_count++;
 			max_time = data[i].datetime > max_time ? data[i].datetime : max_time;
 			min_time = !min_time || data[i].datetime < max_time ? data[i].datetime : min_time;
@@ -453,16 +466,16 @@ function checkAbCalls(data)
 	var message = '';
 	var error_counter = 0;
 
-	if (data[1].call_type == 'ut')
+	if (!data.length && data[0].call_type == 'ut')
 	{
 		return 0;
 	}
 
 	for (i = 0; i < data.length; ++i)
 	{
-		console.log(data[i].call_type);
 		if (data[i].call_type == 'ab')
 		{
+			console.log(data[i].call_type);
 			ab_count++;
 			max_time = data[i].datetime > max_time ? data[i].datetime : max_time;
 			min_time = !min_time || data[i].datetime < max_time ? data[i].datetime : min_time;
@@ -500,14 +513,14 @@ function checkAbCalls(data)
 // Check UT calls
 function checkUtCalls(data)
 {
-	if (data[1].call_type == 'jpt')
+	if (!data.length && data[0].call_type == 'jpt')
 	{
 		return 0;
 	}
 
 	var message = '';
 
-	if (data[1].call_type != 'ut')
+	if (!data.length && data[0].call_type != 'ut')
 	{
 		error_counter++;
 		message += 'Error : UT call is missing.<br/>';	
@@ -518,9 +531,9 @@ function checkUtCalls(data)
 	
 	for (i = 0; i < data.length; ++i)
 	{
-		console.log(data[i].call_type);
 		if (data[i].call_type == 'ut')
 		{
+			console.log(data[i].call_type);
 			ut_count++;
 		}
 	}
@@ -550,9 +563,9 @@ function checkCdnCalls(data)
 
 	for (i = 0; i < data.length; i++)
 	{
-		console.log(data[i].call_type);
 		if (data[i].call_type == 'cdn')
 		{
+			console.log(data[i].call_type);
 			cdn_count++;
 			max_time = data[i].datetime > max_time ? data[i].datetime : max_time;
 			min_time = !min_time || data[i].datetime < max_time ? data[i].datetime : min_time;
@@ -582,7 +595,7 @@ function checkCdnCalls(data)
 }
 
 // Main
-chrome.tabs.onUpdated.addListener(function(tabId , info) {
+chrome.tabs.onUpdated.addListener(function(tab_id , info) {
     if (info.status == "complete") {
 		console.log('start');
 		
@@ -591,13 +604,17 @@ chrome.tabs.onUpdated.addListener(function(tabId , info) {
 		var message = '';
 
 		document.getElementById("processing").remove();
-		ok_counter += !checkPrebidLoading(data);
-		ok_counter += !checkAdSlotCount();
-		ok_counter += !checkUtCalls(data);
-		ok_counter += !checkJptCalls(data);
-		ok_counter += !checkGptCalls(data);
-		ok_counter += !checkAbCalls(data);
-		ok_counter += !checkCdnCalls(data);
+		
+		ok_counter += !checkPrebidLoaded();
+		if (ok_counter)
+		{
+			ok_counter += !checkAdSlotCount();
+			ok_counter += !checkUtCalls(data);
+			ok_counter += !checkJptCalls(data);
+			ok_counter += !checkGptCalls(data);
+			ok_counter += !checkAbCalls(data);
+			ok_counter += !checkCdnCalls(data);
+		}
 
 		if (ok_counter == 7)
 		{
