@@ -216,9 +216,12 @@ function checkPrebidLoaded()
 			message += ' - Code: '+ adunit.code + '<br/>';
 
 			var sizes = '';
-			for (j=0; j < adunit.sizes.length; j++)
+
+			adunit_sizes = adunit.sizes ? adunit.sizes : adunit.bids[0].sizes;
+
+			for (j=0; adunit_sizes && j < adunit_sizes.length; j++)
 			{
-				sizes += ' ' + adunit.sizes[j][0] +'x'+ adunit.sizes[j][1];
+				sizes += ' ' + adunit_sizes[j][0] +'x'+ adunit_sizes[j][1];
 			}		
 			message += ' - Sizes:'+ sizes + '<br/>';
 
@@ -247,12 +250,12 @@ function checkJptCalls(data)
 	var tab_id = data[0].tab_id;
 	var message = '';
 
-	if (!data.length && data[0].call_type == 'ut')
+	if (!data.length || data[0].call_type == 'ut')
 	{
 		return 0;
 	}
 
-	if (!data.length && data[0].call_type != 'jpt')
+	if (!data.length || data[0].call_type != 'jpt')
 	{
 		error_counter++;
 		message += 'Error : JPT call is missing.<br/>';	
@@ -513,14 +516,14 @@ function checkAbCalls(data)
 // Check UT calls
 function checkUtCalls(data)
 {
-	if (!data.length && data[0].call_type == 'jpt')
+	if (!data.length || data[0].call_type == 'jpt')
 	{
 		return 0;
 	}
 
 	var message = '';
 
-	if (!data.length && data[0].call_type != 'ut')
+	if (!data.length || data[0].call_type != 'ut')
 	{
 		error_counter++;
 		message += 'Error : UT call is missing.<br/>';	
