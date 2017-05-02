@@ -8,10 +8,8 @@ function injectScript(file, node)
     th.appendChild(s);
 }
 
-chrome.tabs.onUpdated.addListener(function(tab_id , info)
-{
-    injectScript(chrome.extension.getURL('/check_pbjs.js'), 'body');
-});
+injectScript(chrome.extension.getURL('/check_pbjs.js'), 'body');
+
 
 // Listen for messages
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse)
