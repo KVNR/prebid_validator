@@ -469,7 +469,7 @@ function checkAbCalls(data)
 	var message = '';
 	var error_counter = 0;
 
-	if (!data.length && data[0].call_type == 'ut')
+	if (!data.length || data[0].call_type == 'ut')
 	{
 		return 0;
 	}
