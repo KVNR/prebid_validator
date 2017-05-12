@@ -18,9 +18,9 @@ if (typeof(window.pbjs) == "object")
         pbjs.onEvent('auctionInit', function() { window.pbjs_debug('Auction started ==================================='); });
         pbjs.onEvent('requestBids', function() { window.pbjs_debug('Bids Requested'); });
         pbjs.onEvent('bidRequested', function(data) { var divs = "";for(var i=0;i<data.bids.length;i++){var sizes = "";for(var j=0;j<data.bids[i].sizes.length;j++){sizes += data.bids[i].sizes[j][0] +"x"+ data.bids[i].sizes[j][1] + "   ";}divs +="\n               "+data.bids[i].placementCode + "    "+sizes;}window.pbjs_debug('> Bid Requested from ' +data.bidderCode+ ' for the following: ' + divs); });
-        //pbjs.onEvent('bidResponse', function(data) { window.pbjs_debug('> Bid Returned from '+data.bidderCode+':\n\n'+JSON.stringify(data, null, 4)); });
-        //pbjs.onEvent('bidTimeout', function() { window.pbjs_debug('> Bid Timeout occurred'); });
-        //pbjs.onEvent('bidAdjustment', function() { window.pbjs_debug('> Bid Adjustment occurred'); });
+        pbjs.onEvent('bidResponse', function(data) { window.pbjs_debug('> Bid Returned from '+data.bidderCode+':\n\n'+JSON.stringify(data, null, 4)); });
+        pbjs.onEvent('bidTimeout', function() { window.pbjs_debug('> Bid Timeout occurred'); });
+        pbjs.onEvent('bidAdjustment', function() { window.pbjs_debug('> Bid Adjustment occurred'); });
         pbjs.onEvent('bidWon', function(data) { window.pbjs_debug('A Bid won the DFP auction\n\n'+JSON.stringify(data, null, 4)); });
         pbjs.onEvent('auctionEnd', function() { window.pbjs_debug('Auction ended ======================================\n\n'+JSON.stringify(pbjs.getBidResponses(), null, 4)); });
         pbjs.onEvent('setTargeting', function() { window.pbjs_debug('Setting DFP targeting:\n\n'+JSON.stringify(pbjs.getAdserverTargeting(), null, 4)); });
