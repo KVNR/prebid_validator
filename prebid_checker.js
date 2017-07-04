@@ -57,6 +57,18 @@ chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
 	    ["requestBody"]
 	);
 
+	// PBS call check
+	chrome.webRequest.onBeforeRequest.addListener(
+		function(details) {
+			if (current_tab.id == details.tabId)
+			{
+				addCallInfoDiv(details, 'pbs');
+			}
+	   	},
+	    {urls: ["*://*.adnxs.com/pbs/*/auction"]},
+	    ["requestBody"]
+	);	
+
 	// GPT calls check
 	chrome.webRequest.onResponseStarted.addListener(
 		function(details) {
@@ -89,7 +101,7 @@ chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
 	    		addCallInfoDiv(details, 'cdn');
 	    	}
 	   	},
-	    {urls: ["*://cdn.adnxs.com/p/*", "*://vcdn.adnxs.com/p/*"]},
+	    {urls: ["*://cdn.adnxs.com/p/*", "*://vcdn.adnxs.com/p/*", "*://*/appnexus.download.akamai.com/*.png"]},
 	    ["responseHeaders"]
 	);  
 });
@@ -131,7 +143,6 @@ function writeCountDFPAdSlotsOnPage(tab_dom_content)
 {
 	google_tags_count = 0;
 
-	// console.log(tab_dom_content);
 	var google_tags_count = (tab_dom_content.match(/googletag\.display/g) || []).length;
 	document.getElementById('data').setAttribute('dfp_tags',google_tags_count);
 }
@@ -159,7 +170,7 @@ function collectData()
 }
 
 // Helper callback to retreive pbjs from active tab
-function writePbjsDataOnPage(response)
+function writePbjsDataOnExtension(response)
 {
 	var pbjs = response.replace(/&quot;/g,'"');
 	if (!pbjs.includes('pbjs_object="'))
@@ -174,14 +185,13 @@ function writePbjsDataOnPage(response)
 	document.getElementById('data').setAttribute('pbjs_object',pbjs);
 }
 
-// Helper for number of adslots on page
+// Send a message to the page, retrieve pbjs and send it back serialized
 function checkPbjsOnPage(tab_id)
 {
-	chrome.tabs.sendMessage(tab_id, {text:'Give me the DOM!'}, writePbjsDataOnPage);
+	chrome.tabs.sendMessage(tab_id, {text:'Give me the DOM!'}, writePbjsDataOnExtension);
 }
 
 // Check if prebid loaded properly
-// function checkPrebidLoading(data)
 function checkPrebidLoaded()
 {
 
@@ -250,7 +260,7 @@ function checkJptCalls(data)
 	var tab_id = data[0].tab_id;
 	var message = '';
 
-	if (!data.length || data[0].call_type == 'ut')
+	if (!data.length || data[0].call_type == 'ut' || data[0].call_type == 'pbs')
 	{
 		return 0;
 	}
@@ -348,7 +358,8 @@ function checkGptCalls(data)
 	var hb_params = {};
 	var scp_params = '';
 	var jpt_count = document.getElementById('data').getAttribute('jpt_calls');
-	var adaptor_name = jpt_count ? 'appnexus' : 'appnexusAst';
+	var pbs_count = document.getElementById('data').getAttribute('pbs_calls');
+	var adaptor_name = jpt_count || pbs_count ? 'appnexus' : 'appnexusAst';
 	var good_adaptor = true;
 	var allowed_sizes = ['300x250','728x90','300x600','320x50','160x600','970x25','970x250','1800x1000'];
 	var good_sizes = true;
@@ -389,11 +400,11 @@ function checkGptCalls(data)
 					}
 
 					// Check adaptator name
-					if (scp_param[0] == 'hb_bidder' && jpt_count)
+					if (scp_param[0] == 'hb_bidder' && (jpt_count || pbs_count))
 					{
 						good_adaptor = good_adaptor && scp_param[1] == 'appnexus';
 					}
-					else if (scp_param[0] == 'hb_bidder' && !jpt_count)
+					else if (scp_param[0] == 'hb_bidder' && !jpt_count && !pbs_count)
 					{
 						good_adaptor = good_adaptor && scp_param[1] == 'appnexusAst';
 					}
@@ -495,7 +506,7 @@ function checkAbCalls(data)
 		message += 'Error : number of AB calls ('+ab_count+') is not the same as the number of google tags ('+google_tags_count+').<br/>';		
 	}
 
-	if (ab_count != jpt_count)
+	if (ab_count != jpt_count && data[0].call_type == 'jpt')
 	{
 		error_counter++;
 		message += 'Error : number of AB calls ('+ab_count+') is not the same as the number of JPT calls ('+jpt_count+').<br/>';		
@@ -516,7 +527,7 @@ function checkAbCalls(data)
 // Check UT calls
 function checkUtCalls(data)
 {
-	if (!data.length || data[0].call_type == 'jpt')
+	if (data.length && (data[0].call_type == 'jpt' || data[0].call_type == 'pbs'))
 	{
 		return 0;
 	}
@@ -548,6 +559,48 @@ function checkUtCalls(data)
 	}
 
 	message = !error_counter ? 'UT calls: OK!<br/>' : message;
+	var type = error_counter ? 'ko' : 'ok';
+	showMessage(message, type);
+	return error_counter;	
+}
+
+// Check PBS calls
+function checkPbsCalls(data)
+{
+	if (data.length && (data[0].call_type == 'jpt' || data[0].call_type == 'ut'))
+	{
+		return 0;
+	}
+
+	var message = '';
+
+	if (!data.length || data[0].call_type != 'pbs')
+	{
+		error_counter++;
+		message += 'Error : PBS call is missing.<br/>';	
+	}
+
+	var error_counter = 0;
+	var pbs_count = 0;
+	
+	for (i = 0; i < data.length; ++i)
+	{
+		if (data[i].call_type == 'pbs')
+		{
+			console.log(data[i].call_type);
+			pbs_count++;
+		}
+	}
+
+	document.getElementById('data').setAttribute('pbs_calls',pbs_count);
+
+	if (pbs_count > 1)
+	{
+		error_counter++;
+		message += 'Error : number of PBS calls ('+pbs_count+') is too big. You should have only 1.<br/>';		
+	}
+
+	message = !error_counter ? 'PBS calls: OK!<br/>' : message;
 	var type = error_counter ? 'ko' : 'ok';
 	showMessage(message, type);
 	return error_counter;	
@@ -598,43 +651,48 @@ function checkCdnCalls(data)
 }
 
 // Main
-chrome.tabs.onUpdated.addListener(function(tab_id , info) {
-    if (info.status == "complete") {
-		console.log('start');
-		
-		var ok_counter = 0;
-		var data = collectData();
-		var message = '';
+chrome.tabs.onUpdated.addListener(function(tab_id , info)
+{
+    if (info.status == "complete")
+    {
+    	setTimeout(function(){
+			console.log('start');
+			
+			var ok_counter = 0;
+			var data = collectData();
+			var message = '';
 
-		document.getElementById("processing").remove();
-		
-		ok_counter += !checkPrebidLoaded();
-		if (ok_counter)
-		{
-			ok_counter += !checkAdSlotCount();
-			ok_counter += !checkUtCalls(data);
-			ok_counter += !checkJptCalls(data);
-			ok_counter += !checkGptCalls(data);
-			ok_counter += !checkAbCalls(data);
-			ok_counter += !checkCdnCalls(data);
-		}
+			document.getElementById("processing").remove();
+			
+			ok_counter += !checkPrebidLoaded();
+			if (ok_counter)
+			{
+				ok_counter += !checkAdSlotCount();
+				ok_counter += !checkUtCalls(data);
+				ok_counter += !checkPbsCalls(data);
+				ok_counter += !checkJptCalls(data);
+				ok_counter += !checkGptCalls(data);
+				ok_counter += !checkAbCalls(data);
+				ok_counter += !checkCdnCalls(data);
+			}
 
-		if (ok_counter == 7)
-		{
-			message = 'Prebid Test Page validated!<br/> You are all set :)<br/>';
-			type = 'ok';
-		}
-		else
-		{
-			var error_counter = 7 - ok_counter;
-			message += error_counter;
-			message += error_counter > 1 ? ' steps are' : ' step is';
-			message +=' KO. Please fix the test page.<br/>';
-			type ='ko';
-		}
+			if (ok_counter == 8)
+			{
+				message = 'Prebid Test Page validated!<br/> You are all set :)<br/>';
+				type = 'ok';
+			}
+			else
+			{
+				var error_counter = 8 - ok_counter;
+				message += error_counter;
+				message += error_counter > 1 ? ' steps are' : ' step is';
+				message +=' KO. Please fix the test page.<br/>';
+				type ='ko';
+			}
 
-		showMessage(message, type);
+			showMessage(message, type);
 
-		console.log('end');
+			console.log('end');
+		},2000);
     }
 });
