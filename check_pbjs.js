@@ -1,3 +1,10 @@
+function serializePbjs(pbjs)
+{
+	var result = JSON.stringify(window.pbjs);
+	result = result.replace(/"ad":".*","requestId":/, '"ad":"","requestId":');
+	return result;
+}
+
 if (typeof(window.pbjs) == "object")
 {
 	var body = window.document.getElementsByTagName('body')[0];
@@ -5,7 +12,9 @@ if (typeof(window.pbjs) == "object")
 	new_div.setAttribute('style', 'display:none;');
 	new_div.setAttribute('id', 'pbjs_data');
 	new_div.setAttribute('pbjs_loaded', 'true');
-	new_div.setAttribute('pbjs_object', JSON.stringify(window.pbjs));
+
+
+	new_div.setAttribute('pbjs_object', serializePbjs(window.pbjs));
 	body.appendChild(new_div);
 
 

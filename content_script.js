@@ -8,7 +8,9 @@ function injectScript(file, node)
     th.appendChild(s);
 }
 
-injectScript(chrome.extension.getURL('/check_pbjs.js'), 'body');
+setTimeout(function(){
+    injectScript(chrome.extension.getURL('/check_pbjs.js'), 'body');
+}, 200);
 
 
 // Listen for messages
