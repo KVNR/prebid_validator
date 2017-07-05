@@ -196,7 +196,16 @@ function checkPrebidLoaded()
 {
 
 	var pbjs = document.getElementById('data').getAttribute('pbjs_object');
-	pbjs = JSON.parse(pbjs);
+
+	try 
+	{
+		pbjs = JSON.parse(pbjs);
+	}
+	catch (e)
+	{
+		console.log(e);
+		pbjs = {}
+	}
 
 	console.log(pbjs);
 
@@ -251,6 +260,11 @@ function checkPrebidLoaded()
 // Check jpt calls
 function checkJptCalls(data)
 {
+	if (!data.length || data[0].call_type == 'ut' || data[0].call_type == 'pbs')
+	{
+		return 0;
+	}
+		
 	var max_time = 0;
 	var jpt_count = 0;
 
@@ -259,11 +273,6 @@ function checkJptCalls(data)
 	var qs_parameters = [];
 	var tab_id = data[0].tab_id;
 	var message = '';
-
-	if (!data.length || data[0].call_type == 'ut' || data[0].call_type == 'pbs')
-	{
-		return 0;
-	}
 
 	if (!data.length || data[0].call_type != 'jpt')
 	{
@@ -472,6 +481,11 @@ function checkGptCalls(data)
 // Check AB calls
 function checkAbCalls(data)
 {
+	if (!data.length || data[0].call_type == 'ut')
+	{
+		return 0;
+	}
+
 	var ab_count = 0;
 	var max_time = 0;
 	var min_time = null;
@@ -479,11 +493,6 @@ function checkAbCalls(data)
 	var gpt_count = document.getElementById('data').getAttribute('gpt_prebid_placements');
 	var message = '';
 	var error_counter = 0;
-
-	if (!data.length || data[0].call_type == 'ut')
-	{
-		return 0;
-	}
 
 	for (i = 0; i < data.length; ++i)
 	{
