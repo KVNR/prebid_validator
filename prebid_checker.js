@@ -31,7 +31,7 @@ chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
 	countDFPAdSlotsOnPage(current_tab.id);
 
 	// Prebid.js load check
-	checkPbjsOnPage(current_tab.id);
+	checkHeaderBiddingWrapperOnPage(current_tab.id);
 
 	// JPT calls check
 	chrome.webRequest.onResponseStarted.addListener(
@@ -143,7 +143,6 @@ function writeCountDFPAdSlotsOnPage(tab_dom_content)
 {
 	google_tags_count = 0;
 
-	console.log(tab_dom_content);
 	var google_tags_count = (tab_dom_content.match(/googletag\.defineSlot/g) || []).length;
 	document.getElementById('data').setAttribute('dfp_tags',google_tags_count);
 }
@@ -171,25 +170,42 @@ function collectData()
 }
 
 // Helper callback to retreive pbjs from active tab
-function writePbjsDataOnExtension(response)
+function writeHeaderBiddingWrapperDataOnExtension(response)
 {
-	var pbjs = response.replace(/&quot;/g,'"');
-	if (!pbjs.includes('pbjs_object="'))
+	//console.log(response);
+	response = response.replace(/&quot;/g,'"');
+
+	var pbjs = pbjs = '{}'
+	if (response.includes('pbjs_object="'))
 	{
-		pbjs='{}'
-	}
-	else
-	{
-		pbjs = pbjs.split('pbjs_object="')[1];
+		pbjs = response.split('pbjs_object="')[1];
 		pbjs = pbjs.split('"></div>')[0];
 	}
 	document.getElementById('data').setAttribute('pbjs_object',pbjs);
+
+
+	// Check for competitor wrappers
+	competitors = ['openx', 'index', 'rubicon'];
+
+	competitors.forEach(function(element) {
+
+		var competitor = {}
+		competitor.name = element;
+
+		if (response.includes('id="' + competitor.name + '_data'))
+		{
+			version = response.split(competitor.name + '_version="')[1];
+			version = version.split('"></div>')[0];
+			competitor.version = version;
+			document.getElementById('data').setAttribute(competitor.name + '_object',JSON.stringify(competitor));
+		}
+	});
 }
 
 // Send a message to the page, retrieve pbjs and send it back serialized
-function checkPbjsOnPage(tab_id)
+function checkHeaderBiddingWrapperOnPage(tab_id)
 {
-	chrome.tabs.sendMessage(tab_id, {text:'Give me the DOM!'}, writePbjsDataOnExtension);
+	chrome.tabs.sendMessage(tab_id, {text:'Give me the DOM!'}, writeHeaderBiddingWrapperDataOnExtension);
 }
 
 // Check if prebid loaded properly
@@ -216,6 +232,21 @@ function checkPrebidLoaded()
 	if (!pbjs.libLoaded)
 	{
 		message += 'Error : Prebid library not loaded.<br/>';
+
+		competitors = ['openx', 'index', 'rubicon'];
+
+		competitors.forEach(function(element) {
+
+			var competitor = document.getElementById('data').getAttribute(element + '_object');
+			if (competitor)
+			{
+				competitor = JSON.parse(competitor);
+				message += ' - ' + competitor.name + ' wrapper'
+				message += competitor.version ? ' version ' + competitor.version : '';
+				message += ' is used.<br/>';	
+			}
+		});
+
 		type = 'ko';
 	}
 	else

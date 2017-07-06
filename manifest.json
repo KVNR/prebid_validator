@@ -3,7 +3,7 @@
 
   "name": "Prebid.js Test Page Validator",
   "description": "This extension help you to validate your prebid.js test page",
-  "version": "0.0.0.2",
+  "version": "0.0.0.4",
 
   "browser_action": {
     "default_icon": "blue.png",
