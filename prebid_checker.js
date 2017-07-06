@@ -143,7 +143,8 @@ function writeCountDFPAdSlotsOnPage(tab_dom_content)
 {
 	google_tags_count = 0;
 
-	var google_tags_count = (tab_dom_content.match(/googletag\.display/g) || []).length;
+	console.log(tab_dom_content);
+	var google_tags_count = (tab_dom_content.match(/googletag\.defineSlot/g) || []).length;
 	document.getElementById('data').setAttribute('dfp_tags',google_tags_count);
 }
 
