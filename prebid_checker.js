@@ -185,7 +185,7 @@ function writeHeaderBiddingWrapperDataOnExtension(response)
 
 
 	// Check for competitor wrappers
-	competitors = ['openx', 'index', 'rubicon'];
+	competitors = ['openx', 'index', 'rubicon', 'amazon'];
 
 	competitors.forEach(function(element) {
 
@@ -233,7 +233,7 @@ function checkPrebidLoaded()
 	{
 		message += 'Error : Prebid library not loaded.<br/>';
 
-		competitors = ['openx', 'index', 'rubicon'];
+		competitors = ['openx', 'index', 'rubicon', 'amazon'];
 
 		competitors.forEach(function(element) {
 

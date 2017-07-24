@@ -75,3 +75,16 @@ if (typeof(window.headertag) == 'object' && typeof(window.headertag.version) == 
 	new_div.setAttribute('rubicon_version', '');
 	body.appendChild(new_div);
 }
+
+// Detect Amazon Wrapper
+if (typeof(window.amznads) == 'object')
+{
+	var body = window.document.getElementsByTagName('body')[0];
+	var new_div = document.createElement('div');
+	new_div.setAttribute('style', 'display:none;');
+	new_div.setAttribute('id', 'amazon_data');
+	new_div.setAttribute('amazon_version', '');
+	body.appendChild(new_div);
+}
+
+
